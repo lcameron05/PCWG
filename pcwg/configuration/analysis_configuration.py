@@ -279,6 +279,9 @@ class AnalysisConfiguration(base_configuration.XmlBase):
 
             self.addBoolNode(doc, alternative_correction_node, "Density", alternative_correction.density)
 
+        sensitivity_analysis_node = self.addNode(doc, root, "SensitivityAnalysis")
+        self.addBoolNode(doc, sensitivity_analysis_node, "Active", self.sensitivity_analysis_active)
+
     def readDatasets(self, configurationNode):
 
         datasetsNode = self.getNode(configurationNode, 'Datasets')
