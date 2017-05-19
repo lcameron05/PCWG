@@ -22,6 +22,7 @@ from ..share.share_factory import ShareAnalysisFactory
 
 from ..core import benchmark
 from ..core import analysis as core_analysis
+from ..core import sensitivity as sensitivity_analysis
 
 from ..configuration.preferences_configuration import Preferences
 from ..configuration.benchmark_configuration import BenchmarkConfiguration
@@ -820,8 +821,10 @@ class UserInterface:
             return
 
         try:
-
-            self.analysis = core_analysis.Analysis(self.analysisConfiguration)
+            if not self.analysisConfiguration.sensitivity_analysis_active:
+                self.analysis = core_analysis.Analysis(self.analysisConfiguration)
+            else:
+                self.analysis = sensitivity_analysis.SensitivityAnalysis(self.analysisConfiguration)
 
         except ExceptionHandler.ExceptionType as e:
 
