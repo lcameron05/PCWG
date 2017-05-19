@@ -61,6 +61,7 @@ class MatplotlibPlotter(object):
             plt.ylabel('Variation Metric (%)')
             file_out = self.path + os.sep + 'Power Curve Sensitivity Analysis Variation Metric Summary.png'
             plt.tight_layout()
+            chckMake(self.path)
             plt.savefig(file_out)
             plt.close('all')
         except:
