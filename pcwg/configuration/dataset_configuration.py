@@ -105,10 +105,10 @@ class DatasetConfiguration(base_configuration.XmlBase):
             self.readExclusions(configurationNode)
             self.readCalibration(configurationNode)
 
-            if self.nodeExists(configurationNode, 'SensitivityAnalysis'):
-                self.readSensitivityAnalysis(configurationNode)
+            if self.nodeExists(configurationNode, 'KeepColumns'):
+                self.read_keep_columns(configurationNode)
             else:
-                self.sensitivityDataColumns = []
+                self.additional_columns_to_keep = []
 
             self.readTurbine(configurationNode)
 
@@ -186,7 +186,9 @@ class DatasetConfiguration(base_configuration.XmlBase):
             self.density_pre_correction_wind_speed = None
             self.density_pre_correction_reference_density = None
 
-            self.initialize_meta_data()  
+            self.initialize_meta_data()
+
+            self.additional_columns_to_keep = []
 
     @property
     def path(self): 
@@ -437,6 +439,8 @@ class DatasetConfiguration(base_configuration.XmlBase):
 
         self.write_pre_density(doc, root)
 
+        self.write_keep_columns(doc, root)
+
     def write_meta_data(self, doc, root):
 
         meta_data_node = self.addNode(doc, root, "MetaData")
@@ -469,6 +473,7 @@ class DatasetConfiguration(base_configuration.XmlBase):
             self.addIntNode(doc, meta_data_node, "TurbineTechnologyVintage", self.turbine_technology_vintage)
 
         self.addTextNode(doc, meta_data_node, "TimeZone", self.time_zone)
+
 
     def write_shear(self, doc, parent_node, node_name, shear_measurements):
         
@@ -694,19 +699,6 @@ class DatasetConfiguration(base_configuration.XmlBase):
 
             self.rewsProfileLevels.append(ShearMeasurement(height, speed, direction, upflow))
 
-    def readSensitivityAnalysis(self, configurationNode):
-
-        sensitivityCols = []
-        sensitivityNode = self.getNode(configurationNode, 'SensitivityAnalysis')
-
-        if self.nodeExists(sensitivityNode,"DataColumn"):
-            allSensitivityColNodes = self.getNodes(sensitivityNode,"DataColumn")
-
-            for node in allSensitivityColNodes:
-                sensitivityCols.append(node.firstChild.data)
-
-        self.sensitivityDataColumns = sensitivityCols
-
     def getCalculateMode(self, mode):
 
         if mode == "Calculated":
@@ -863,3 +855,21 @@ class DatasetConfiguration(base_configuration.XmlBase):
 
             self.calibrationSectors.append(calibrationSector)
 
+    def read_keep_columns(self, config_node):
+
+        cols_to_keep = []
+        keep_cols_node = self.getNode(config_node, 'KeepColumns')
+
+        if self.nodeExists(keep_cols_node, "DataColumn"):
+            all_data_col_nodes = self.getNodes(keep_cols_node, "DataColumn")
+
+            for node in all_data_col_nodes:
+                cols_to_keep.append(node.firstChild.data)
+
+        self.additional_columns_to_keep = cols_to_keep
+
+    def write_keep_columns(self, doc, root):
+
+        keep_cols_node = self.addNode(doc, root, "KeepColumns")
+        for col_to_keep in self.additional_columns_to_keep:
+            self.addTextNode(doc, keep_cols_node, "DataColumn", col_to_keep)

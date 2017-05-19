@@ -453,6 +453,8 @@ class Analysis(object):
             else:
                 self.datasetConfigs.append(dataset)
 
+        self.sensitivity_analysis_active = config.sensitivity_analysis_active
+
     def define_columns(self):
 
         self.nameColumn = "Dataset Name"

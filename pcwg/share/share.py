@@ -255,6 +255,8 @@ class ShareAnalysisBase(Analysis):
         self.calculated_power_deviation_matrix_definition = NullDeviationMatrixDefinition()
         self.rews_deviation_matrix_definition = NullDeviationMatrixDefinition()
 
+        self.sensitivity_analysis_active = False
+
     def get_interpolation_mode(self):
         return "Linear"
 

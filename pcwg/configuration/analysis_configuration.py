@@ -91,6 +91,8 @@ class AnalysisConfiguration(base_configuration.XmlBase):
 
             self.read_alternative_corrections(configurationNode)
 
+            self.read_sensitivity_analysis(configurationNode)
+
         else:
 
             self.isNew = True
@@ -125,6 +127,8 @@ class AnalysisConfiguration(base_configuration.XmlBase):
             self.power_deviation_matrix_method = 'Average of Deviations'
 
             self.alternative_corrections = []
+
+            self.sensitivity_analysis_active = False
 
     @property
     def path(self): 
@@ -464,3 +468,10 @@ class AnalysisConfiguration(base_configuration.XmlBase):
 
             self.alternative_corrections.append(alternative_correction)
 
+    def read_sensitivity_analysis(self, config_node):
+
+        if self.nodeExists(config_node, 'SensitivityAnalysis'):
+            sensitivity_analysis_node = self.getNode(config_node, 'SensitivityAnalysis')
+            self.sensitivity_analysis_active = self.getNodeBool(sensitivity_analysis_node, 'Active')
+        else:
+            self.sensitivity_analysis_active = False

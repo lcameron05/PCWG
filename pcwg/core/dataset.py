@@ -313,7 +313,7 @@ class Dataset:
         self.productionByHeight = 'Production By Height'
 
         self.density_pre_correction_wind_speed = 'Pre-density correction wind speed'
-        self.sensitivityDataColumns = config.sensitivityDataColumns
+        self.additional_columns_to_keep = config.additional_columns_to_keep
 
     def load_raw_data(self, config):
 
@@ -772,7 +772,7 @@ class Dataset:
         if self.hasActualPower:
             requiredCols.append(self.actualPower)
 
-        for col in self.sensitivityDataColumns:
+        for col in self.additional_columns_to_keep:
             if col not in requiredCols:
                 requiredCols.append(col)
 
