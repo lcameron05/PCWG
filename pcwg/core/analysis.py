@@ -763,8 +763,8 @@ class Analysis(object):
 
         return mask
 
-    def interpolatePowerCurve(self, powerCurveLevels, ws_col, interp_power_col):
-        self.dataFrame[interp_power_col] = self.dataFrame[ws_col].apply(powerCurveLevels.power)
+    def interpolatePowerCurve(self, power_curve, ws_col, interp_power_col):
+        self.dataFrame[interp_power_col] = self.dataFrame[ws_col].apply(power_curve.power)
 
     def calculateMeasuredPowerCurve(self, filter_func, cutInWindSpeed, cutOutWindSpeed, ratedPower, powerColumn, name, zero_ti_pc_required = False, override_interpolation_method=None):
 
@@ -888,10 +888,10 @@ class Analysis(object):
 
     def iec_2005_cat_A_power_curve_uncertainty(self):
         if self.turbRenormActive:
-            pc = self.allMeasuredTurbCorrectedPowerCurve.powerCurveLevels
+            pc = self.allMeasuredTurbCorrectedPowerCurve.data_frame
             pow_col = self.measuredTurbulencePower
         else:
-            pc = self.allMeasuredPowerCurve.powerCurveLevels
+            pc = self.allMeasuredPowerCurve.data_frame
             pow_col = self.actualPower
         #pc['frequency'] = pc[self.dataCount] / pc[self.dataCount].sum()
         pc['s_i'] = pc[self.powerStandDev] / (pc[self.dataCount]**0.5) #from IEC 2005
