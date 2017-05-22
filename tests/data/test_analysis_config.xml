@@ -18,14 +18,14 @@
 	<InnerRange>
 		<InnerRangeDimensions>
 			<InnerRangeDimension>
-				<InnerRangeParameter>Shear</InnerRangeParameter>
-				<InnerRangeLowerLimit>0.050000</InnerRangeLowerLimit>
-				<InnerRangeUpperLimit>0.200000</InnerRangeUpperLimit>
-			</InnerRangeDimension>
-			<InnerRangeDimension>
 				<InnerRangeParameter>Turbulence</InnerRangeParameter>
 				<InnerRangeLowerLimit>0.080000</InnerRangeLowerLimit>
 				<InnerRangeUpperLimit>0.120000</InnerRangeUpperLimit>
+			</InnerRangeDimension>
+			<InnerRangeDimension>
+				<InnerRangeParameter>Shear</InnerRangeParameter>
+				<InnerRangeLowerLimit>0.050000</InnerRangeLowerLimit>
+				<InnerRangeUpperLimit>0.200000</InnerRangeUpperLimit>
 			</InnerRangeDimension>
 		</InnerRangeDimensions>
 	</InnerRange>
@@ -80,4 +80,7 @@
 			<Density>0</Density>
 		</AlternativeCorrection>
 	</AlternativeCorrections>
+	<SensitivityAnalysis>
+		<Active>1</Active>
+	</SensitivityAnalysis>
 </Configuration>

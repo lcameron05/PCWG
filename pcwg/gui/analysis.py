@@ -129,6 +129,8 @@ class AnalysisConfigurationDialog(base_dialog.BaseConfigurationDialog):
                
         self.nominalWindSpeedDistribution = self.addFileOpenEntry(master, "Nominal Wind Speed Distribution:", validation.ValidateNominalWindSpeedDistribution(master, self.powerCurveMode), self.config.nominal_wind_speed_distribution.absolute_path, self.filePath)
 
+        self.sensitivity_analysis_active = self.addCheckBox(master, "Perform Sensitivity Analysis:", self.config.sensitivity_analysis_active)
+
     def add_alternative_corrections(self, master):
 
         self.alternative_corrections_grid_box = AlternativeCorrectionGridBox(master, self, self.row, self.inputColumn)
@@ -257,3 +259,5 @@ class AnalysisConfigurationDialog(base_dialog.BaseConfigurationDialog):
 
         self.config.web_service_active = bool(self.web_service_active.get())
         self.config.web_service_url = self.web_service_url.get()
+
+        self.config.sensitivity_analysis_active = bool(self.sensitivity_analysis_active.get())
