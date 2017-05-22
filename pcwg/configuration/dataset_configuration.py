@@ -106,9 +106,9 @@ class DatasetConfiguration(base_configuration.XmlBase):
             self.readCalibration(configurationNode)
 
             if self.nodeExists(configurationNode, 'KeepColumns'):
-                self.read_keep_columns(configurationNode)
+                self.read_sensitivity_analysis_columns(configurationNode)
             else:
-                self.additional_columns_to_keep = []
+                self.additional_sensitivity_analysis_cols = []
 
             self.readTurbine(configurationNode)
 
@@ -188,7 +188,7 @@ class DatasetConfiguration(base_configuration.XmlBase):
 
             self.initialize_meta_data()
 
-            self.additional_columns_to_keep = []
+            self.additional_sensitivity_analysis_cols = []
 
     @property
     def path(self): 
@@ -439,7 +439,7 @@ class DatasetConfiguration(base_configuration.XmlBase):
 
         self.write_pre_density(doc, root)
 
-        self.write_keep_columns(doc, root)
+        self.write_sensitivity_analysis_columns(doc, root)
 
     def write_meta_data(self, doc, root):
 
@@ -855,10 +855,10 @@ class DatasetConfiguration(base_configuration.XmlBase):
 
             self.calibrationSectors.append(calibrationSector)
 
-    def read_keep_columns(self, config_node):
+    def read_sensitivity_analysis_columns(self, config_node):
 
         cols_to_keep = []
-        keep_cols_node = self.getNode(config_node, 'KeepColumns')
+        keep_cols_node = self.getNode(config_node, "SensitivityAnalysis")
 
         if self.nodeExists(keep_cols_node, "DataColumn"):
             all_data_col_nodes = self.getNodes(keep_cols_node, "DataColumn")
@@ -866,10 +866,10 @@ class DatasetConfiguration(base_configuration.XmlBase):
             for node in all_data_col_nodes:
                 cols_to_keep.append(node.firstChild.data)
 
-        self.additional_columns_to_keep = cols_to_keep
+        self.additional_sensitivity_analysis_cols = cols_to_keep
 
-    def write_keep_columns(self, doc, root):
+    def write_sensitivity_analysis_columns(self, doc, root):
 
-        keep_cols_node = self.addNode(doc, root, "KeepColumns")
-        for col_to_keep in self.additional_columns_to_keep:
+        keep_cols_node = self.addNode(doc, root, "SensitivityAnalysis")
+        for col_to_keep in self.additional_sensitivity_analysis_cols:
             self.addTextNode(doc, keep_cols_node, "DataColumn", col_to_keep)

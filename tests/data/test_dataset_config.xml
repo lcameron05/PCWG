@@ -139,4 +139,5 @@
 		<DensityPreCorrectionActive>0</DensityPreCorrectionActive>
 		<DensityPreCorrectionWindSpeed></DensityPreCorrectionWindSpeed>
 	</DensityPreCorrection>
+	<SensitivityAnalysis/>
 </Configuration>

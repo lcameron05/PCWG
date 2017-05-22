@@ -19,6 +19,8 @@ class SensitivityAnalysis(Analysis):
         self.calculate_sensitivity_analysis()
         self.calculate_scatter_metric()
 
+        Status.add("Complete.")
+
     def export_sensitivity_plots(self, path):
 
         if not self.hasActualPower:
@@ -50,7 +52,6 @@ class SensitivityAnalysis(Analysis):
         self.interpolatePowerCurve(sens_pow_curve, self.baseline_wind_speed, sens_pow_interp_column)
         Status.add("Attempting power curve sensitivty analysis for %s power curve..." % sens_pow_curve.name)
         self.perform_sensitivity_analysis(sens_pow_curve, sens_pow_column, sens_pow_interp_column)
-        Status.add("Sensitivity analysis complete.")
 
     def calculate_scatter_metric(self):
 
@@ -116,7 +117,7 @@ class SensitivityAnalysis(Analysis):
             np.abs(filteredDataFrame['Days From December Solstice'].dt.days),
             365 - np.abs(filteredDataFrame['Days From December Solstice'].dt.days))
 
-        for col in (list(filteredDataFrame.columns)):
+        for col in self._get_sensitivity_analysis_columns():
             Status.add("\nAttempting to compute sensitivity of power curve to %s..." % col, verbosity=2)
             try:
                 results_df, variation_metric = self.calculatePowerCurveSensitivity(filteredDataFrame, power_curve, col,
@@ -187,3 +188,19 @@ class SensitivityAnalysis(Analysis):
                 df.loc[ws, 'Scatter Metric'] = self.calculatePowerCurveScatterMetric(measuredPowerCurve, powerColumn,
                                                                                      rows)
         return df.dropna()
+
+    def _get_sensitivity_analysis_columns(self):
+        cols = ['Days From December Solstice', 'Hours From Noon', 'Days Elapsed In Test']
+        if self.hasDensity:
+            cols.append(self.hubDensity)
+        if self.hasShear:
+            cols.append(self.shearExponent)
+        if self.hasDirection:
+            cols.append(self.windDirection)
+        if self.hasTurbulence:
+            cols.append(self.hubTurbulence)
+        if self.inflowAngle in self.dataFrame.columns:
+            cols.append(self.inflowAngle)
+        for dataset_config in self.datasetConfigs:
+            cols += dataset_config.additional_sensitivity_analysis_cols
+        return cols
