@@ -180,12 +180,19 @@ class UserInterface:
         self.visualisation = tk.StringVar(analyse_group_top, "Power Curve")
 
         visualisation_options = ['Power Curve',
-                                  'Turbulence by Direction',
-                                  'Turbulence by Speed', 
-                                  'Turbulence by Shear', 
-                                  'Shear by Direction', 
-                                  'Shear by Speed',
-                                  'Power Coefficient by Speed']
+                                 'Turbulence by Direction',
+                                 'Turbulence by Speed',
+                                 'Turbulence by Shear',
+                                 'Shear by Direction',
+                                 'Shear by Speed',
+                                 'Power Coefficient by Speed',
+                                 'TI Corrected Power Curve',
+                                 'Wind Speed Histogram',
+                                 'TI Histogram',
+                                 'Density Histogram',
+                                 'Shear Histogram',
+                                 'Wind Direction Histogram',
+                                 'Hour of Day Histogram']
 
         self.visualation_menu = apply(tk.OptionMenu, (analyse_group_top, self.visualisation) + tuple(visualisation_options))
 

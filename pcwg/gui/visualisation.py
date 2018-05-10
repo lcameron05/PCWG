@@ -10,6 +10,8 @@ import ttk
 
 from tk_simple_dialog import Dialog
 
+from ..visualisation.generic import generic_histogram, hour_of_day_histogam
+
 from ..visualisation.power_curve import PowerCurvePlotter
 
 from ..visualisation.turbulence import TurbulenceByDirection
@@ -91,6 +93,51 @@ class VisualisationDialogFactory:
             plotter = PowerCoefficientBySpeed(self.analysis)
             plotter.plot()
 
-        else:
+        elif visualisation == "TI Corrected Power Curve":
 
+            if not self.analysis.turbRenormActive:
+                Status.add("TI correction is not active; cannot plot TI corrected power curve.")
+                return
+            elif not self.analysis.hasTurbulence:
+                Status.add("TI is not defined; cannot plot TI corrected power curve.")
+                return
+            plotter = PowerCurvePlotter(analysis=self.analysis)
+            plotter.plot(self.analysis.baseline.wind_speed_column,
+                         self.analysis.measuredTurbulencePower,
+                         self.analysis.allMeasuredTurbCorrectedPowerCurve,
+                         specified_title='Warranted',
+                         mean_title='Measured Mean (TI Corrected)',
+                         gridLines=True)
+
+        elif visualisation == 'Wind Speed Histogram':
+            generic_histogram(self.analysis.dataFrame, self.analysis.baseline.wind_speed_column, unit='m/s')
+
+        elif visualisation == 'TI Histogram':
+            if not self.analysis.hasTurbulence:
+                Status.add("TI not defined. Cannot plot TI histogram.")
+                return
+            generic_histogram(self.analysis.dataFrame, self.analysis.hubTurbulence)
+
+        elif visualisation == 'Shear Histogram':
+            if not self.analysis.hasShear:
+                Status.add("Shear not defined. Cannot plot shear exponent histogram.")
+                return
+            generic_histogram(self.analysis.dataFrame, self.analysis.shearExponent)
+
+        elif visualisation == 'Density Histogram':
+            if not self.analysis.hasDensity:
+                Status.add("Density not defined. Cannot plot shear exponent histogram.")
+                return
+            generic_histogram(self.analysis.dataFrame, self.analysis.hubDensity, unit=r'$kg/m^{3}$')
+
+        elif visualisation == 'Wind Direction Histogram':
+            if not self.analysis.hasDirection:
+                Status.add("Wind Direction not defined. Cannot plot wind direction histogram.")
+                return
+            generic_histogram(self.analysis.dataFrame, self.analysis.windDirection, unit='deg')
+
+        elif visualisation == 'Hour of Day Histogram':
+            hour_of_day_histogam(self.analysis.dataFrame)
+
+        else:
             raise Exception("Unknown visualation: {0}".format(visualisation))
