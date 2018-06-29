@@ -5,7 +5,6 @@ from copy import deepcopy
 from datetime import datetime as dt
 from PIL import Image
 from shutil import rmtree
-import numpy as np
 import xlwt
 
 from plots import MatplotlibPlotter
@@ -83,7 +82,7 @@ class PortfolioReport(object):
         
         inner_by_ws_start_col = 18
         
-        sheet.write(header_row, uid_col,             "Analysis", self.bold_style)
+        sheet.write(header_row, uid_col,             "DatasetID", self.bold_style)
         sheet.write(header_row, inner_start_col,     "IR-Count", self.bold_style)
         sheet.write(header_row, inner_start_col + 1, "IR-NME", self.bold_style)
         sheet.write(header_row, inner_start_col + 2, "IR-NMAE", self.bold_style)
@@ -116,7 +115,7 @@ class PortfolioReport(object):
                         sheet.write(header_row, inner_by_ws_start_col + speed_index, wind_speed, self.bold_style)
                         sheet.write(header_row, outer_by_ws_start_col + speed_index, wind_speed, self.bold_style)
 
-                sheet.write(data_row, uid_col, "Deprecated")            
+                sheet.write(data_row, uid_col, share.analysis.dataset_configuration_unique_id)
 
                 self.write_range_errors(share.analysis, sheet, data_row, inner_start_col, analysis_key, 'Inner')
                 self.write_range_errors(share.analysis, sheet, data_row, outer_start_col, analysis_key, 'Outer')
@@ -329,7 +328,7 @@ class MetaDataSheet(object):
         self.write_meta_cell(sh, 22, col, dataset.power_measurement_type, manual_optional_style)
 
         self.write_meta_cell(sh, 23, col, self.analysis.rotorGeometry.diameter, calculated_style)
-        self.write_meta_cell(sh, 24, col, self.analysis.rotorGeometry.hubHeight, calculated_style)
+        self.write_meta_cell(sh, 24, col, self.analysis.rotorGeometry.hub_height, calculated_style)
         self.write_meta_cell(sh, 25, col, self.analysis.specific_power, calculated_style)
 
         self.write_meta_cell(sh, 26, col, dataset.turbine_control_type, manual_required_style)
@@ -382,11 +381,19 @@ class MetricsSheets(object):
         self.__write_by_month_metric_sheet(sh_name, error_col, error_type, row_offset)
     
     def __write_overall_metric_sheet(self, sh_name, correction_name, error_type, row_offset):
+
         sh = self.sheet_map[sh_name]
         wrt_cell_keep_style(self.analysis.overall_pcwg_err_metrics[self.analysis.dataCount], sh, 3 + row_offset, 3)
         wrt_cell_keep_style(self.analysis.overall_pcwg_err_metrics[correction_name + ' NME'], sh, 4 + row_offset, 3)
         wrt_cell_keep_style(self.analysis.overall_pcwg_err_metrics[correction_name + ' NMAE'], sh, 5 + row_offset, 3)
-    
+
+        if correction_name != 'Baseline':
+
+            correction = self.analysis.corrections[correction_name]
+
+            if correction.is_matrix():
+                wrt_cell_keep_style(correction.value_found_fraction, sh, 2 + row_offset, 7)
+
     def __write_by_ws_metric_sheet(self, sh_name, err_col, error_type, row_offset):
         df = self.analysis.binned_pcwg_err_metrics[self.analysis.normalisedWSBin][(error_type, err_col)]
         sh = self.sheet_map[sh_name]
@@ -530,34 +537,76 @@ class ScatterPlotSheet(object):
         except:
             Status.add('Could not delete folder %s' % (os.getcwd() + os.sep + plt_path), verbosity=2)
 
+class TimeSeriesSheet:
+
+    def __init__(self, analysis, sheet):
+        self.analysis = analysis
+        self.sheet = sheet
+
+    def write(self):
+        #pass
+        self.analysis.dataFrame.to_csv('share.csv')
+        #
+        #rows = len(self.analysis.dataFrame)
+        #column = 0
+        #
+        #for row in range(rows):
+        #    self.sheet.write(row, column, self.analysis.dataFrame.loc[row, column])
+
 class PCWGShareXReport(object):
-    
-    TEMPALTE_PATH = PathBuilder.get_path('Share_X_template.xls')
 
     TEMPLATE_SHEET_MAP = {'Submission': 0,
                           'Meta Data': 1,
                           'Template': 2}
 
-    def __init__(self, analysis, version, output_fname, pcwg_inner_ranges, share_name):
+    def __init__(self, analysis, version, output_fname, pcwg_inner_ranges, share_name, export_time_series=False):
+
+        template_path = PathBuilder.get_path('Share_X_template.xls')
 
         self.analysis = analysis
         self.sheet_map = {}
+        self.export_time_series = export_time_series
 
         if len(analysis.datasetConfigs) > 1:
             raise Exception("Analysis must contain one and only one dataset")
 
-        rb = xlrd.open_workbook(PCWGShareXReport.TEMPALTE_PATH, formatting_info=True)
+        Status.add("Loading template: {0}".format(template_path))
+
+        rb = xlrd.open_workbook(template_path, formatting_info=True)
         wb = copy(rb)
+
+        Status.add("Setting up worksheets")
 
         self.map_sheet(wb, "Submission")
         self.map_sheet(wb, "Meta Data")
-        
-        self.add_template_sheet(wb, 'Template', 'Baseline')
 
+        Status.add('Setting up baseline worksheet')
+        templates_to_finish = []
+        templates_to_finish.append(('Baseline', self.add_template_sheet(wb, 'Template')))
+
+        sheet_count = 1
         for correction_name in analysis.corrections:
             correction = analysis.corrections[correction_name]
-            self.add_template_sheet(wb, 'Template', correction.short_correction_name)
-        
+            Status.add(
+                'Setting up correction sheet worksheet: {0} of {1}'.format(sheet_count, len(analysis.corrections)))
+            templates_to_finish.append((correction.short_correction_name, self.add_template_sheet(wb, 'Template')))
+            sheet_count += 1
+
+        # note: attaching copied sheets to workbook after they are all copied seems
+        # seems to manage memory better which avoids a memory error in deepcopy
+
+        Status.add('Finishing Template Sheets')
+        sheet_count = 1
+        for template_to_finish in templates_to_finish:
+            Status.add(
+                'Finishing Template Sheets: {0} of {1}'.format(sheet_count, len(analysis.corrections)))
+            wb._Workbook__worksheets.append(template_to_finish[1])
+            template_to_finish[1].set_name(template_to_finish[0])
+            self.sheet_map[template_to_finish[0]] = template_to_finish[1]
+            sheet_count += 1
+
+        Status.add("Deleting template worksheets")
+
         self.delete_template_sheet(wb, 'Template')
 
         self.workbook = wb
@@ -581,11 +630,11 @@ class PCWGShareXReport(object):
     def map_sheet(self, workbook, sheet_name):
         self.sheet_map[sheet_name] = workbook.get_sheet(PCWGShareXReport.TEMPLATE_SHEET_MAP[sheet_name])
 
-    def add_template_sheet(self, workbook, template_sheet_name, new_name):
-        sheet = self.copy_sheet(workbook, PCWGShareXReport.TEMPLATE_SHEET_MAP[template_sheet_name], new_name)
-        self.sheet_map[new_name] = sheet
+    def add_template_sheet(self, workbook, template_sheet_name):
+        return self.copy_sheet(workbook, PCWGShareXReport.TEMPLATE_SHEET_MAP[template_sheet_name])
 
-    def copy_sheet(self, workbook, source_index, new_name): 
+    def copy_sheet(self, workbook, source_index):
+
         '''
         workbook     == source + book in use 
         source_index == index of sheet you want to copy (0 start) 
@@ -594,24 +643,30 @@ class PCWGShareXReport(object):
         '''
 
         source_worksheet = workbook.get_sheet(source_index)
-        #wb_dump(workbook)
-        copied_sheet = deepcopy(source_worksheet) 
-        #copied_workbook = copied_sheet._Worksheet__parent
-        #wb_dump(copied_workbook)
-        workbook._Workbook__worksheets.append(copied_sheet)
-        copied_sheet.set_name(new_name)
-        #workbook._Workbook__sst = copied_workbook._Workbook__sst
-        #workbook._Workbook__styles = copied_workbook._Workbook__styles
-        #wb_dump(workbook)
+
+        copied_sheet = deepcopy(source_worksheet)
+
         return copied_sheet
 
     def report(self):
-        
+
+        Status.add("Adding submission sheet")
         SubmissionSheet(self.share_name, self.version, self.analysis, self.sheet_map["Submission"]).write()
+
+        Status.add("Adding meta data sheet")
         MetaDataSheet(self.analysis, self.sheet_map["Meta Data"]).write()
+
+        Status.add("Adding metrics sheets")
         MetricsSheets(self.analysis, self.sheet_map).write()
+
+        Status.add("Adding scatter plot sheets")
         ScatterPlotSheet(self.analysis, self.workbook.add_sheet("Scatter")).write()
 
+        if self.export_time_series:
+            Status.add("Adding time series sheet")
+            TimeSeriesSheet(self.analysis, self.workbook.add_sheet("TimeSeries")).write()
+
+        Status.add("Saving report")
         self.export()        
             
     def export(self):

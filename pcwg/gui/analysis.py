@@ -74,7 +74,14 @@ class AnalysisConfigurationDialog(base_dialog.BaseConfigurationDialog):
 
     def add_corrections(self, master):
                                         
-        self.turbulenceCorrectionActive = self.addCheckBox(master, "Turbulence Correction Active", self.config.turbRenormActive)
+        self.turbulenceCorrectionActive = self.addCheckBox(master,
+                                                           "Turbulence Correction Active",
+                                                           self.config.turbRenormActive)
+
+        self.augment_turbulence_correction = self.addCheckBox(master,
+                                                              "Augment Turbulence Correction",
+                                                              self.config.augment_turbulence_correction)
+
         self.powerDeviationMatrixActive = self.addCheckBox(master, "PDM Correction Active", self.config.powerDeviationMatrixActive)               
         
         self.specifiedPowerDeviationMatrix = self.addFileOpenEntry(master, "Specified PDM:", validation.ValidateSpecifiedPowerDeviationMatrix(master, self.powerDeviationMatrixActive), self.config.specified_power_deviation_matrix.absolute_path, self.filePath)
@@ -122,7 +129,7 @@ class AnalysisConfigurationDialog(base_dialog.BaseConfigurationDialog):
 
     def add_advanced(self, master):
 
-        self.interpolationMode = self.addOption(master, "Interpolation Mode:", ["Linear", "Cubic Spline", "Cubic Hermite", "Marmander"], self.config.interpolationMode)
+        self.interpolationMode = self.addOption(master, "Interpolation Mode:", ["Linear", "Cubic Spline", "Cubic Hermite", "Marmander (Cubic Spline)", "Marmander (Cubic Hermite)"], self.config.interpolationMode)
 
         self.negative_power_period_treatment = self.addOption(master, "Negative Power Period Treatment", self.config.get_power_treatment_options(), self.config.negative_power_period_treatment)  
         self.negative_power_bin_average_treatment = self.addOption(master, "Negative Power Bin Average Treatment", self.config.get_power_treatment_options(), self.config.negative_power_bin_average_treatment)  
@@ -236,7 +243,10 @@ class AnalysisConfigurationDialog(base_dialog.BaseConfigurationDialog):
         self.config.specified_power_curve.absolute_path = self.specifiedPowerCurve.get()
 
         self.config.densityCorrectionActive = bool(self.densityCorrectionActive.get())
+
         self.config.turbRenormActive = bool(self.turbulenceCorrectionActive.get())
+        self.config.augment_turbulence_correction = bool(self.augment_turbulence_correction.get())
+
         self.config.productionByHeightActive = bool(self.productionByHeightActive.get())
 
         self.config.rewsActive = bool(self.rewsCorrectionActive.get())

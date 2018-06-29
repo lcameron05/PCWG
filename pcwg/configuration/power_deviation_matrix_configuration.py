@@ -1,10 +1,10 @@
 
 import base_configuration
-from ..core.status import Status
+import numpy as np
 
 class PowerDeviationMatrixConfiguration(base_configuration.XmlBase):
 
-    def __init__(self, path = None):
+    def __init__(self, path=None):
 
         self.out_of_range_count = 0
         self.total_count = 0
@@ -12,39 +12,39 @@ class PowerDeviationMatrixConfiguration(base_configuration.XmlBase):
         self.below_count_by_dimension = None
         self.above_count_by_dimension = None
 
-        if path != None:
+        if path is not None:
 
             self.isNew = False
             doc = self.readDoc(path)
 
             self.path = path
 
-            matrixNode = self.getNode(doc, 'PowerDeviationMatrix')
+            matrix_node = self.getNode(doc, 'PowerDeviationMatrix')
 
-            self.name = self.getNodeValue(matrixNode, 'Name')
-            self.outOfRangeValue = self.getNodeFloat(matrixNode, 'OutOfRangeValue')
+            self.name = self.getNodeValue(matrix_node, 'Name')
+            self.outOfRangeValue = self.getNodeFloat(matrix_node, 'OutOfRangeValue')
 
-            dimensionsNode = self.getNode(matrixNode, 'Dimensions')
+            dimensions_node = self.getNode(matrix_node, 'Dimensions')
 
             self.dimensions = []
 
-            for node in self.getNodes(dimensionsNode, 'Dimension'):
+            for node in self.getNodes(dimensions_node, 'Dimension'):
 
                 parameter = self.getNodeValue(node, 'Parameter')
 
                 if parameter == "Normalised Hub Wind Speed":
-                    #Backwards compatibility
+                    # Backwards compatibility
                     parameter = "Normalised Wind Speed"
                     
-                centerOfFirstBin = self.getNodeFloat(node, 'CenterOfFirstBin')
-                binWidth = self.getNodeFloat(node, 'BinWidth')
-                numberOfBins = self.getNodeInt(node, 'NumberOfBins')
+                center_of_first_bin = self.getNodeFloat(node, 'CenterOfFirstBin')
+                bin_width = self.getNodeFloat(node, 'BinWidth')
+                number_of_bins = self.getNodeInt(node, 'NumberOfBins')
 
                 self.dimensions.append(PowerDeviationMatrixDimension(parameter=parameter,
                                                                      index=(len(self.dimensions) + 1),
-                                                                     centerOfFirstBin=centerOfFirstBin,
-                                                                     binWidth=binWidth,
-                                                                     numberOfBins=numberOfBins))
+                                                                     centerOfFirstBin=center_of_first_bin,
+                                                                     binWidth=bin_width,
+                                                                     numberOfBins=number_of_bins))
 
             if len(self.dimensions) < 1:
                 raise Exception("Matrix has zero dimensions")
@@ -55,28 +55,30 @@ class PowerDeviationMatrixConfiguration(base_configuration.XmlBase):
 
             for cellNode in self.getNodes(cellsNode, 'Cell'):
 
-                cellDimensionsNode = self.getNode(cellNode, 'CellDimensions')
+                cell_dimensions_node = self.getNode(cellNode, 'CellDimensions')
 
-                cellDimensions = {}
+                cell_dimensions = {}
 
-                for cellDimensionNode in self.getNodes(cellDimensionsNode, 'CellDimension'):
+                for cellDimensionNode in self.getNodes(cell_dimensions_node, 'CellDimension'):
                     parameter = self.getNodeValue(cellDimensionNode, 'Parameter')
                     center = self.getNodeFloat(cellDimensionNode, 'BinCenter')
-                    cellDimensions[parameter] = center
+                    cell_dimensions[parameter] = center
 
                 value = self.getNodeFloat(cellNode, 'Value')
 
-                cellKeyList = []
+                if not np.isnan(value):
 
-                for i in range(len(self.dimensions)):
-                    dimension = self.dimensions[i]
-                    parameter = dimension.parameter
-                    binCenter = cellDimensions[parameter]
-                    cellKeyList.append(self.getBin(dimension, binCenter))
+                    cellKeyList = []
 
-                key = tuple(cellKeyList)
+                    for i in range(len(self.dimensions)):
+                        dimension = self.dimensions[i]
+                        parameter = dimension.parameter
+                        binCenter = cell_dimensions[parameter]
+                        cellKeyList.append(self.getBin(dimension, binCenter))
 
-                self.cells[key] = value
+                    key = tuple(cellKeyList)
+
+                    self.cells[key] = value
 
         else:
 
@@ -84,7 +86,6 @@ class PowerDeviationMatrixConfiguration(base_configuration.XmlBase):
             self.name = ""
             self.dimensions = []
             self.cells = {}
-
 
     def save(self, path, dimensions, matrix):
 
@@ -114,7 +115,7 @@ class PowerDeviationMatrixConfiguration(base_configuration.XmlBase):
         self.path = path        
         self.saveDocument(doc, self.path)
 
-    def add_cells(self, doc, cells_node, dimensions, matrix, centers = None):
+    def add_cells(self, doc, cells_node, dimensions, matrix, centers=None):
 
         if centers is None:
             dimension_index = 0
@@ -145,6 +146,9 @@ class PowerDeviationMatrixConfiguration(base_configuration.XmlBase):
 
     def write_cell(self, doc, cells_node, dimensions, centers, value):
 
+        if np.isnan(value):
+            return
+
         cell_node = self.addNode(doc, cells_node, "Cell")
 
         cell_dimensions_node = self.addNode(doc, cell_node, "CellDimensions")        
@@ -159,7 +163,8 @@ class PowerDeviationMatrixConfiguration(base_configuration.XmlBase):
         self.addFloatNode(doc, cell_node, "Value", value)
 
     def getBin(self, dimension, value):
-        return round(round((value - dimension.centerOfFirstBin) / dimension.binWidth, 0) * dimension.binWidth + dimension.centerOfFirstBin, 4)
+        return round(round((value - dimension.centerOfFirstBin) / dimension.binWidth, 0)
+                     * dimension.binWidth + dimension.centerOfFirstBin, 4)
 
     def reset_out_of_range_count(self):
 
@@ -194,7 +199,7 @@ class PowerDeviationMatrixConfiguration(base_configuration.XmlBase):
     def above_fraction(self, parameter):
         return float(self.above_count_by_dimension[parameter]) / float(self.total_count)
 
-    def __getitem__(self, parameters):
+    def get_deviation(self, power, parameters):
 
         if len(self.dimensions) < 1:
             raise Exception("Matrix has zero dimensions")
@@ -204,25 +209,31 @@ class PowerDeviationMatrixConfiguration(base_configuration.XmlBase):
 
         self.total_count += 1
 
-        keyList = []
+        if power <= 0.0:
+            return 0.0
+
+        key_list = []
         out_of_range = False
 
         for dimension in self.dimensions:
         
             value = parameters[dimension.parameter]
             
-            binValue = self.getBin(dimension, value)
+            bin_value = self.getBin(dimension, value)
 
-            if not dimension.withinRange(binValue):
+            if not dimension.withinRange(bin_value):
                 
                 self.out_of_range_count_by_dimension[dimension.parameter] += 1
 
-                if value < dimension.centerOfFirstBin: self.below_count_by_dimension[dimension.parameter] += 1
-                if value > dimension.centerOfLastBin: self.above_count_by_dimension[dimension.parameter] += 1
+                if value < dimension.centerOfFirstBin:
+                    self.below_count_by_dimension[dimension.parameter] += 1
+
+                if value > dimension.centerOfLastBin:
+                    self.above_count_by_dimension[dimension.parameter] += 1
 
                 out_of_range = True
             
-            keyList.append(binValue)
+            key_list.append(bin_value)
 
         if out_of_range:
             
@@ -231,26 +242,17 @@ class PowerDeviationMatrixConfiguration(base_configuration.XmlBase):
 
             return self.outOfRangeValue
 
-        key = tuple(keyList)
+        key = tuple(key_list)
 
-        if not key in self.cells:
+        if key not in self.cells:
             
             self.value_not_found += 1
             self.in_range_unpopulated += 1
             
-            return self.outOfRangeValue        
-
-            #message = "Matrix value not found:\n"
-            #
-            #for dimension in self.dimensions:
-            #    value = parameters[dimension.parameter]
-            #    message += "%s: %f (%f) - (%f to %f)\n" % (dimension.parameter, value, self.getBin(dimension, value), dimension.centerOfFirstBin, dimension.centerOfLastBin)
-            #
-            #Status.add(message)
-            #
-            #raise Exception(message)
+            return self.outOfRangeValue
         
         return self.cells[key]
+
 
 class PowerDeviationMatrixDimension(object):
 
@@ -323,8 +325,10 @@ class PowerDeviationMatrixDimension(object):
 
             raise Exception(error)
 
-        if value < self.centerOfFirstBin: return False
-        if value > self.centerOfLastBin: return False
+        if value < self.centerOfFirstBin:
+            return False
+
+        if value > self.centerOfLastBin:
+            return False
 
         return True
-

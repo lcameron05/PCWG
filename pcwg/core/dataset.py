@@ -265,20 +265,38 @@ class Dataset:
 
         self.set_columns(config)
 
+        Status.add('loading raw data')
         dataFrame = self.load_raw_data(config)
-        dataFrame = self.load_direction(config, dataFrame)
-        dataFrame = self.load_shear(config, dataFrame)
-        dataFrame = self.load_inflow(config, dataFrame)        
-        dataFrame = self.load_wind_speed(config, dataFrame)
-        dataFrame = self.load_density(config, dataFrame) 
-        dataFrame = self.load_pre_density(config, dataFrame)
-        dataFrame = self.load_power(config, dataFrame)       
 
+        Status.add('loading direction')
+        dataFrame = self.load_direction(config, dataFrame)
+
+        Status.add('loading shear')
+        dataFrame = self.load_shear(config, dataFrame)
+
+        Status.add('loading inflow')
+        dataFrame = self.load_inflow(config, dataFrame)
+
+        Status.add('loading wind speed')
+        dataFrame = self.load_wind_speed(config, dataFrame)
+
+        Status.add('loading density')
+        dataFrame = self.load_density(config, dataFrame)
+        dataFrame = self.load_pre_density(config, dataFrame)
+
+        Status.add('loading power')
+        dataFrame = self.load_power(config, dataFrame)
+
+        Status.add('applying filters')
         dataFrame = self.filterDataFrame(dataFrame, self.get_filters(config))
+
+        Status.add('applying exclusions')
         dataFrame = self.excludeData(dataFrame, config)
 
+        Status.add('calculating profile levels')
         self.profileLevels, self.profileHubWindSpeedCalculator = self.prepare_rews(config, self.rotorGeometry)
 
+        Status.add('finalising dataset')
         self.finalise_data(config, dataFrame)
 
     def get_filters(self, config):
@@ -366,12 +384,26 @@ class Dataset:
     def load_density(self, config, dataFrame):
 
         if config.calculateDensity:
+
+            if config.pressure == '':
+                raise Exception('Pressure is not defined')
+
+            if config.temperature == '':
+                raise Exception('Temperature is not defined')
+
             dataFrame[self.hubDensity] = 100.0 * dataFrame[config.pressure] / (273.15 + dataFrame[config.temperature]) / 287.058
             self.hasDensity = True
+
         else:
+
             if config.density != None:
+
+                if not config.density in dataFrame:
+                    raise Exception('Specified density column ({0}) not found'.format(config.density))
+
                 dataFrame[self.hubDensity] = dataFrame[config.density]
                 self.hasDensity = True
+
             else:
                 self.hasDensity = False
         
@@ -421,8 +453,11 @@ class Dataset:
             self.verify_column_datatype(dataFrame, measurement.wind_speed_column)
 
         if not self.shearCalibration:
+            Status.add('Calibrating shear')
             dataFrame[self.shearExponent] = dataFrame.apply(ShearExponentCalculator(config.referenceShearMeasurements).shearExponent, axis=1)
         else:
+
+            Status.add('Calculating shear')
 
             dataFrame[self.turbineShearExponent] = dataFrame.apply(ShearExponentCalculator(config.turbineShearMeasurements).shearExponent, axis=1)
             dataFrame[self.referenceShearExponent] = dataFrame.apply(ShearExponentCalculator(config.referenceShearMeasurements).shearExponent, axis=1)
@@ -460,7 +495,9 @@ class Dataset:
 
         if config.calculateHubWindSpeed:
 
+            Status.add('Calculating hub wind speed')
             dataFrame = self.calculate_hub_wind_speed(config, dataFrame)
+            Status.add('Hub Wind Speed Calculated')
 
         else:
 
@@ -474,13 +511,20 @@ class Dataset:
 
     def set_up_specified_hub_wind_speed(self, config, dataFrame):
 
-        self.verify_column_datatype(dataFrame, config.hubWindSpeed)
-
-        dataFrame[self.hubWindSpeed] = dataFrame[config.hubWindSpeed]
+        if (config.hubWindSpeed == ''):
+            if not config.density_pre_correction_active:
+                raise Exception("Dataset hub height wind speed is not well defined")
+        else:
+            self.verify_column_datatype(dataFrame, config.hubWindSpeed)
+            dataFrame[self.hubWindSpeed] = dataFrame[config.hubWindSpeed]
         
         if (config.hubTurbulence != ''):
             dataFrame[self.hubTurbulence] = dataFrame[config.hubTurbulence]
         else:
+
+            if (config.hubWindSpeedForTurbulence == ''):
+                raise Exception("Dataset hub height wind speed for turbulence is not well defined")
+
             dataFrame[self.hubTurbulence] = dataFrame[config.referenceWindSpeedStdDev] / dataFrame[self.hubWindSpeedForTurbulence]
 
         self.hasTurbulence = True
@@ -503,13 +547,15 @@ class Dataset:
         if dataFrame[config.referenceWindDirection].count() < 1:
             raise Exception("Reference wind direction column is empty: cannot apply calibration")
 
+        Status.add('Applying calibration')
         self.calibrationCalculator = self.createCalibration(dataFrame, config, config.timeStepInSeconds)
         dataFrame[self.hubWindSpeed] = dataFrame.apply(self.calibrationCalculator.turbineValue, axis=1)
 
         if dataFrame[self.hubWindSpeed].count() < 1:
             raise Exception("Hub wind speed column is empty after application of calibration")
 
-        if (config.hubTurbulence != ''):
+        Status.add('Calculating turbulence')
+        if config.hubTurbulence != '':
             dataFrame[self.hubTurbulence] = dataFrame[config.hubTurbulence]
         else:
             dataFrame[self.hubTurbulence] = dataFrame[config.referenceWindSpeedStdDev] / dataFrame[self.hubWindSpeedForTurbulence]
@@ -518,6 +564,7 @@ class Dataset:
 
         if config.calibrationMethod != "Specified":
 
+            Status.add('Calculating residual wind speed matrix')
             self.residualWindSpeedMatrix = ResidualWindSpeedMatrix(data_frame=dataFrame,
                                                                    actual_wind_speed_column=self.turbineLocationWindSpeed,
                                                                    modelled_wind_speed_column=self.hubWindSpeed,
@@ -575,6 +622,8 @@ class Dataset:
 
         if config.calibrationMethod == "Specified":
 
+            Status.add('Applying specificing calibration')
+
             calibrationSlopes = {}
             calibrationOffsets = {}
             calibrationActives = {}
@@ -598,7 +647,7 @@ class Dataset:
                 raise Exception("The specified slopes have different bin centres to that specified by siteCalibrationCenterOfFirstSector which is: {0}".format(config.siteCalibrationCenterOfFirstSector))
         else:
 
-            df = dataFrame.copy()
+            Status.add('Calculating calibration')
 
             calibration = self.getCalibrationMethod(config.calibrationMethod,config.referenceWindSpeed, config.turbineLocationWindSpeed, timeStepInSeconds, dataFrame)
 
@@ -615,7 +664,6 @@ class Dataset:
 
             siteCalibCalc = self.createSiteCalibrationCalculator(dataFrame,config.referenceWindSpeed, calibration)
             self._v_ratio_convergence_check()
-            dataFrame = df
 
             return siteCalibCalc
             
@@ -728,7 +776,8 @@ class Dataset:
         requiredCols.append(self.nameColumn)
         requiredCols.append(self.timeStamp)
 
-        requiredCols.append(self.hubWindSpeed)
+        if not self.density_pre_correction_active:
+            requiredCols.append(self.hubWindSpeed)
 
         requiredCols.append(self.hubTurbulence)
         requiredCols.append(self.hubTurbulenceAliasA)

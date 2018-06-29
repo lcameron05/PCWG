@@ -9,7 +9,7 @@ class TestMarmanderPowerCurveInterpolator(unittest.TestCase):
     def test_spreadsheet_benchmark(self):
 
         x = [1.00,
-            2.00,
+             2.00,
             3.00,
             4.10,
             5.06,
@@ -137,7 +137,7 @@ class TestMarmanderPowerCurveInterpolator(unittest.TestCase):
                     0.0
                     ]
 
-        interpolator = interpolators.MarmanderPowerCurveInterpolator(x, y, cutOutWindSpeed, xLimits = limits, debug = False)
+        interpolator = interpolators.MarmanderPowerCurveInterpolatorCubicSpline(x, y, cutOutWindSpeed, x_limits= limits, debug = False)
 
         if interpolator.debug:
             print interpolator.debugText

@@ -5,12 +5,8 @@ Created on Wed Dec 14 23:09:23 2016
 @author: Stuart
 """
 
-import os.path
-import os
-
 from share1_dot_1 import ShareAnalysis1Dot1
 
-from ..core.status import Status
         
 class ShareAnalysis2(ShareAnalysis1Dot1):
 
@@ -22,13 +18,17 @@ class ShareAnalysis2(ShareAnalysis1Dot1):
 
         self.calculate_rews_based(self.calculate_combined_rews_and_turbulence_correction, 3.0)
 
-        self.calculate_pdm_based('HypothesisMatrix_2D_Share2.xml')
-        self.calculate_pdm_based('HypothesisMatrix_3D_Share2.xml')
+        self.calculate_pdm_corrections()
 
-        self.calculate_rews_based(self.calculate_REWS, 2.0)
+        # rotor average wind speed
+        self.calculate_rews_based(self.calculate_REWS, 1.0)
 
         if self.rewsDefined:
             self.calculate_production_by_height_correction()
+
+    def calculate_pdm_corrections(self):
+        self.calculate_pdm_based('HypothesisMatrix_2D_Share2.xml')
+        self.calculate_pdm_based('HypothesisMatrix_3D_Share2.xml')
 
     def calculate_pdm_based(self, filename):
 
@@ -54,5 +54,5 @@ class ShareAnalysis2(ShareAnalysis1Dot1):
                     method()
 
     def should_store_original_datasets(self):
-        #required for production by height method
+        # required for production by height method
         return True

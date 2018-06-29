@@ -1,0 +1,24 @@
+build beta version
+
+Done:
+automate tests
+final rerun of tests (with beta verion)
+add all range (ABC) specific matrixes
+update matrix tests with latest matrices
+investigate inflection speed issue
+matrix export all ranges
+record % of datapoints in matrix (exclude below 0 norm wind speed)
+test matrix export
+export of 3D matrices
+try/catch on inflection_point calc
+refine/finalisation empirical/relax correction and test
+restore original zero ti after relxedcorrection
+
+Share4
+experiment inclusion of density in inner range (wide range?)
+use augmented turbulence for values not in matrix
+profile + optimise speed e.g. https://pandas.pydata.org/pandas-docs/stable/enhancingperf.html
+experiment with interpolation method cange impact on matrices
+consider intial cut in wind speed issue
+round trip ABC matrixes (automate)
+Automate interpolation + baseline power curve tests

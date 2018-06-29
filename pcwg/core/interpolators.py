@@ -29,7 +29,7 @@ class BaseInterpolator(object):
                 
         return (xNew, yNew)
     
-class MarmanderPowerCurveInterpolator(BaseInterpolator):
+class MarmanderPowerCurveInterpolatorBase(BaseInterpolator):
 
     PostCutOutStep = 0.01
     ConvergenceConstant = 1.0
@@ -40,7 +40,7 @@ class MarmanderPowerCurveInterpolator(BaseInterpolator):
     ## Method contributed by Daniel Marmander of Natural Power
     ##
 
-    def __init__(self, x, y, cutOutWindSpeed, xLimits = None, sub_power = None, debug = False):
+    def __init__(self, x, y, cutOutWindSpeed, x_limits = None, sub_power = None, debug = False):
 
         self.debug = debug
         self.debugText = ""
@@ -48,13 +48,13 @@ class MarmanderPowerCurveInterpolator(BaseInterpolator):
         self.cutOutWindSpeed = cutOutWindSpeed
         self.sub_power = sub_power
 
-        if xLimits == None:
+        if x_limits == None:
             Status.add("Calculating bin limts", verbosity=3)
             limits_dict = self.calculate_limits(x, sub_power)
             Status.add("Bin limits calculated", verbosity=3)
         else: 
             Status.add("Preparing bin limits", verbosity=3)
-            limits_dict = self.prepare_limits_dict(x, xLimits, sub_power)
+            limits_dict = self.prepare_limits_dict(x, x_limits, sub_power)
             Status.add("Bin limits prepared", verbosity=3)
 
         try:
@@ -65,7 +65,7 @@ class MarmanderPowerCurveInterpolator(BaseInterpolator):
             error = "Cannot pre-process bins: {0}".format(e)
             Status.add(error, verbosity=3)
             raise Exception(error)
-        
+
         Status.add("Fitting Curve", verbosity=3)
         self.interpolator, self.adjustedBinPowers, self.errors = self.fitpower(self.x, limits_dict, y, adjust)
         
@@ -80,8 +80,8 @@ class MarmanderPowerCurveInterpolator(BaseInterpolator):
         speed = 0
         while speed < 30.0:
             Status.add("{0} {1}".format(speed,  self.interpolator(speed)), verbosity=3)
-            speed += 0.1                    
-                
+            speed += 0.1
+
     def __call__(self, x):
         
         return self.interpolator(x)
@@ -281,7 +281,7 @@ class MarmanderPowerCurveInterpolator(BaseInterpolator):
                     rated_new.append(True)
                     operating_new.append(True)
 
-                xnew.append(cutOutWindSpeed + MarmanderPowerCurveInterpolator.PostCutOutStep)
+                xnew.append(cutOutWindSpeed + MarmanderPowerCurveInterpolatorBase.PostCutOutStep)
                 ynew.append(0.0)
                 rated_new.append(False)
                 operating_new.append(False)
@@ -361,12 +361,12 @@ class MarmanderPowerCurveInterpolator(BaseInterpolator):
 
         return limits
     
-    def fitpower(self,binCenters,binLimits,binAverages,adjust,adjustedBinPowers = None,iteration = 0):    
+    def fitpower(self,binCenters,binLimits,binAverages,adjust,adjustedBinPowers = None,iteration = 0):
 
         if adjustedBinPowers == None:
             adjustedBinPowers = binAverages
-            
-        f = MarmanderPowerCurveInterpolatorCubicFunction(binCenters, adjustedBinPowers, self.cutInWindSpeed, self.ratedWindSpeed, self.cutOutWindSpeed)
+
+        f = self.new_interpolator(binCenters, adjustedBinPowers, self.cutOutWindSpeed)
 
         intergatedPowers = []
         errors = []
@@ -384,7 +384,7 @@ class MarmanderPowerCurveInterpolator(BaseInterpolator):
                 
                 error = intergatedPower - binAverages[i]
 
-                nextPower = adjustedBinPowers[i] - MarmanderPowerCurveInterpolator.ConvergenceConstant * error
+                nextPower = adjustedBinPowers[i] - MarmanderPowerCurveInterpolatorBase.ConvergenceConstant * error
                 
                 nextPowers.append(nextPower)
 
@@ -404,9 +404,9 @@ class MarmanderPowerCurveInterpolator(BaseInterpolator):
 
         Status.add("Iteration: {0} {1}".format(iteration, rmse), verbosity=3)
         
-        if rmse > MarmanderPowerCurveInterpolator.Tolerance:
+        if rmse > MarmanderPowerCurveInterpolatorBase.Tolerance:
 
-            if iteration > MarmanderPowerCurveInterpolator.MaximumNumberOfIterations:
+            if iteration > MarmanderPowerCurveInterpolatorBase.MaximumNumberOfIterations:
 
                 self.debugText = "Maximum number of iterations exceeded\n"
                 self.debugText += self.prepareDebugText(binCenters, binLimits,binAverages, adjustedBinPowers, adjust, intergatedPowers, errors, f)
@@ -436,9 +436,10 @@ class MarmanderPowerCurveInterpolator(BaseInterpolator):
         if total_weight > 0.0:
 
             for partition in limit.partitions:
-                Status.add("{0} {1} {2}".format(partition.start, partition.end, partition.weight), verbosity=3)
-                integrated_power += self.integrate_partition(f, partition.start, partition.end) * partition.weight
-                
+                partition_power = self.integrate_partition(f, partition.start, partition.end)
+                integrated_power += partition_power * partition.weight
+                Status.add("{0} {1} {2} {3}".format(partition.start, partition.end, partition.weight, partition_power), verbosity=3)
+
             return integrated_power / total_weight
        
         else:
@@ -458,11 +459,14 @@ class MarmanderPowerCurveInterpolator(BaseInterpolator):
         count = 0
         
         while wind_speed <= end:
-            integrated_power += f(wind_speed)
+            power = f(wind_speed)
             wind_speed += step
+            integrated_power += power
             count += 1
 
-        return integrated_power / float(count)
+        integrated_power /= float(count)
+
+        return integrated_power
         
     def prepareDebugText(self, binCenters, binLimits, binAverages, adjustedBinPowers, adjust, intergatedPowers, errors, f):
 
@@ -512,7 +516,19 @@ class MarmanderLimitPartition:
     def normalise(self, total_weight):
         if total_weight > 0:
             self.weight /= total_weight
-        
+
+
+class MarmanderPowerCurveInterpolatorCubicSpline(MarmanderPowerCurveInterpolatorBase):
+
+    def new_interpolator(self, binCenters, adjustedBinPowers, cutOutWindSpeed):
+        return CubicSplinePowerCurveInterpolator(binCenters, adjustedBinPowers, cutOutWindSpeed)
+
+
+class MarmanderPowerCurveInterpolatorCubicHermite(MarmanderPowerCurveInterpolatorBase):
+
+    def new_interpolator(self, binCenters, adjustedBinPowers, cutOutWindSpeed):
+        return CubicHermitePowerCurveInterpolator(binCenters, adjustedBinPowers, cutOutWindSpeed)
+
 class MarmanderLimit:
     
     def __init__(self, start, end, sub_power = None):
@@ -547,7 +563,7 @@ class MarmanderLimit:
     def add_partition(self, start, end, weight):
         self.total_weight += weight
         self.partitions.append(MarmanderLimitPartition(start, end, weight))
-            
+
 class MarmanderPowerCurveInterpolatorCubicFunction:
 
     def __init__(self, x, y, cutInWindSpeed, ratedWindSpeed, cutOutWindSpeed):
@@ -555,10 +571,10 @@ class MarmanderPowerCurveInterpolatorCubicFunction:
         self.cutInWindSpeed = cutInWindSpeed
         self.ratedWindSpeed = ratedWindSpeed
         self.cutOutWindSpeed = cutOutWindSpeed
-        
+
         self.cubicInterpolator = interpolate.interp1d(x, y, kind='cubic',fill_value=0.0,bounds_error=False)
         self.linearInterpolator = interpolate.interp1d(x, y, kind='linear',fill_value=0.0,bounds_error=False)
-        
+
     def __call__(self, x):
 
         if x < self.cutInWindSpeed or x > self.cutOutWindSpeed:
@@ -568,33 +584,6 @@ class MarmanderPowerCurveInterpolatorCubicFunction:
                 return float(self.cubicInterpolator(x))
             else:
                 return float(self.linearInterpolator(x))
-    
-class CubicSplinePowerCurveInterpolator(BaseInterpolator):
-
-    def __init__(self, x, y, cutOutWindSpeed):
-
-        #todo consolidate preprocessing logic with MarmanderPowerCurveInterpolator (maybe extract base class)
-        
-        self.cubicInterpolator = interpolate.interp1d(x, y, kind='cubic',fill_value=0.0,bounds_error=False)
-        self.linearInterpolator = interpolate.interp1d(x, y, kind='linear',fill_value=0.0,bounds_error=False)
-        self.cutOutWindSpeed = cutOutWindSpeed
-
-        highestNonZero = 0.0
-        self.lastCubicWindSpeed = 0.0
-        
-        for i in range(len(x)):
-            if y[i] > 0 and x[i] > highestNonZero:
-                self.lastCubicWindSpeed = x[i - 3]
-                highestNonZero = x[i]
-        
-    def __call__(self, x):
-        if x > self.cutOutWindSpeed:
-            return 0.0
-        else:
-            if x > self.lastCubicWindSpeed:
-                return float(self.linearInterpolator(x))
-            else:
-                return float(self.cubicInterpolator(x))
 
 class CubicHermitePowerCurveInterpolator(BaseInterpolator):
 
@@ -603,9 +592,8 @@ class CubicHermitePowerCurveInterpolator(BaseInterpolator):
         self.first_value = x[0]
         self.last_value = x[-1]
         
-        self.interpolator = interpolate.PchipInterpolator(x,
-                                                          y,
-                                                          extrapolate =False)
+        self.interpolator = interpolate.PchipInterpolator(x,y,extrapolate =False)
+
         self.cutOutWindSpeed = cutOutWindSpeed
         
     def __call__(self, x):
@@ -642,4 +630,28 @@ class LinearTurbulenceInterpolator:
 
     def __call__(self, x):
         return float(self.interpolator(x))
-    
+
+class CubicSplinePowerCurveInterpolator(BaseInterpolator):
+
+    def __init__(self, x, y, cutOutWindSpeed):
+
+        self.cubicInterpolator = interpolate.interp1d(x, y, kind='cubic', fill_value=0.0, bounds_error=False)
+        self.linearInterpolator = interpolate.interp1d(x, y, kind='linear', fill_value=0.0, bounds_error=False)
+        self.cutOutWindSpeed = cutOutWindSpeed
+
+        highestNonZero = 0.0
+        self.lastCubicWindSpeed = 0.0
+
+        for i in range(len(x)):
+            if y[i] > 0 and x[i] > highestNonZero:
+                self.lastCubicWindSpeed = x[i - 3]
+                highestNonZero = x[i]
+
+    def __call__(self, x):
+        if x > self.cutOutWindSpeed:
+            return 0.0
+        else:
+            if x > self.lastCubicWindSpeed:
+                return float(self.linearInterpolator(x))
+            else:
+                return float(self.cubicInterpolator(x))
